@@ -8,24 +8,38 @@ find_neon_dp<- function(search_for) {
 
   ## if neon data products not in environment -> get
   if (!"neon_data_products" %in% ls(.GlobalEnv)) {
-    print("Creating neon_data_products table")
+    headers <- c(
+      'Content-Type' = 'application/json'
+    )
     call <- "http://data.neonscience.org/api/v0/products/"
-    details <- GET(url = call)
     
-    Sys.sleep(3)
-    print(paste0("Connecting Status ",status_code(details)))
+    cat(paste0("Trying to connect..."))
+    details <- GET(url = call, add_headers(headers))
+    cat("\n")
+
+    for (i in c(10:1)) {
+      cat(paste0("...",i,"... \r"))
+      Sys.sleep(1)
+      #cat(" ")
+    }
+
+    cat(paste0("Connecting Status ",status_code(details)))
+    cat("\n")
     
     if (status_code(details) != 200) {
       ## try again
       details <- GET(url = call)
       
-      Sys.sleep(3)
+      for (i in c(10:1)) {
+        cat(paste0("...",i,"... \r"))
+        Sys.sleep(1)
+        #cat(" ")
+      }
+      
       print(paste0("trying again, Connecting Status ",status_code(details)))
     }
-    
-    headers <- c(
-      'Content-Type' = 'application/json'
-    )
+    cat("\n")
+    cat("Creating neon_data_products table...")
     
     res <- VERB("GET", url = call,
                 #body = body,
@@ -41,9 +55,27 @@ find_neon_dp<- function(search_for) {
 
   p<- grep(search_for, neon_data_products[,1], ignore.case = T)
   d_res<- neon_data_products[c(p),]
+  
+  cat("\n")
+  Sys.sleep(1)
+  ## save to global environment
+  data_dpID<- as.data.frame(d_res)
+  data_dpID_df<<- data_dpID
+  
   return(d_res)
+} ## End of function
+
+# find_neon_dp(search_for = "plant")
+# View(data_dpID_df)
+
+### Function to get Fulcrum data with just sql query as input - from Greg Chapman
+getFulcrumData <- function(sql,verbose=FALSE) {
+  token <- fulcrumToken # Read-only API token for Fulcrum
+  url <-  paste0("https://api.fulcrumapp.com/api/v2/query?token=", token,
+                 "&format=json", "&q=", URLencode(sql), "&headers=true")
+  request <- httr::GET(url, add_headers("X-ApiToken"=token, Accept="application/json"))
+  content <- jsonlite::fromJSON(httr::content(request, as="text"))
+  data.return <- content$rows
+  # if(verbose==TRUE){print(content(request))}
+  return(content) #I switched to return content rather than content$rows
 }
-#find_neon_dp(search_for = "tick")
-
-#View(neon_data_procucts)
-

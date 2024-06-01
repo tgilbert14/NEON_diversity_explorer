@@ -3,35 +3,72 @@ library(jsonlite)
 library(tidyverse)
 library(neonUtilities)
 
-call <- "http://data.neonscience.org/api/v0/products/"
+source("NEON_functions.R")
 
-details <- GET(url = call)
-status_code(details)
-#text <- content(details, "parsed", encoding = "UTF-8")
-#text <- content(details, "raw", encoding = "UTF-8")
+find_neon_dp(search_for = "plant")
 
-headers <- c(
-  'Content-Type' = 'application/json'
-)
+cat("Select one...\n")
+cat(paste0(data_dpID_df$product_name,"\n"))
 
-res <- VERB("GET", url = call,
-            #body = body,
-            add_headers(headers))
+product_pick<- data_dpID_df["Plant foliar traits" == data_dpID_df$product_name,]
 
-data<- fromJSON(rawToChar(res$content))
-product_code<- data$data$productCode
-product_name<- data$data$productName
+product_pick$product_code
 
-neon_data_procucts<- cbind(product_name, product_code)
-View(neon_data_procucts)
+neon_data<- loadByProduct(product_pick$product_code,
+                          site = "SRER",
+                          startdate = "2020-01",
+                          enddate = "2022-12",
+                          nCores = 2,
+                          forceParallel = T,
+                          tabl = "all",
+                          check.size = F)
 
-search_for<- "tick"
-p<- grep(search_for, neon_data_procucts[,1], ignore.case = T)
-d_res<- neon_data_procucts[c(p),]
+field_data<- neon_data$cfc_fieldData %>% 
+  select(!c("uid"))
+
+lignin<- neon_data$cfc_lignin %>% 
+  select(!c("domainID", "siteID", "plotID", "uid", "plotType", "collectDate",
+            "namedLocation", "sampleCode", "release", "publicationDate"))
+names(lignin)[names(lignin)=="dataQF"]<- "dataQF_lignin"
+names(lignin)[names(lignin)=="remarks"]<- "remarks_lignin"
+names(lignin)[names(lignin)=="dryMass"]<- "dryMass_lignin"
 
 
 
-tick_code<- "DP1.10093.001"
+lma<- neon_data$cfc_LMA %>% 
+  select(!c("domainID", "siteID", "uid", "plotType", "collectDate",
+            "namedLocation", "sampleCode", "release", "publicationDate"))
+names(lma)[names(lma)=="dataQF"]<- "dataQF_lma"
+names(lma)[names(lma)=="remarks"]<- "remarks_lma"
+names(lma)[names(lma)=="dryMass"]<- "dryMass_lma"
+
+
+
+# View(lignin)
+# View(lma)
+# View(field_data)
+
+
+t<- full_join(field_data, lignin, by="sampleID")
+
+t2<- full_join(t, lma, by="sampleID")
+View(t2)
+
+write.csv(field_data, "tables/fd.csv")
+write.csv(lignin, "tables/lignin.csv")
+write.csv(lma, "tables/lma.csv")
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## SRER
 tick_data<- loadByProduct(tick_code, startdate = "2016-01", site = "SRER", check.size = F)
